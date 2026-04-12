@@ -1,0 +1,18 @@
+/* global.css */
+/* -----------------------------------------------------------
+ * This file is the ENTRY POINT for Tailwind CSS.
+ *
+ * These three directives (@tailwind) tell Tailwind to inject
+ * its generated CSS into your app:
+ *
+ * - base:       Resets and normalizes default styles
+ * - components: Styles for component classes (like .btn)
+ * - utilities:  The actual utility classes (bg-red-500, p-4, etc.)
+ *
+ * NativeWind reads this file through Metro (the bundler) and
+ * converts the CSS into React Native styles at build time.
+ * ----------------------------------------------------------- */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
