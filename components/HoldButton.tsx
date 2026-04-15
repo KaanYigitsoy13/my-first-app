@@ -6,7 +6,7 @@
 // HOW IT WORKS:
 // 1. User presses and holds the button
 // 2. A gold progress bar fills from left to right over 3 seconds
-// 3. Phone vibrates gently, getting faster as the bar fills
+// 3. Phone vibrates gently every 500ms while holding
 // 4. If user holds the full duration → success vibration → onComplete()
 // 5. If user releases early → progress resets, no action taken
 //
@@ -53,10 +53,10 @@ export default function HoldButton({
   // on the native thread for smooth 60fps animations.
   const progress = useRef(new Animated.Value(0)).current;
 
-  // Stores the ID of our haptic timeout so we can stop it later.
+  // Stores the ID of our haptic interval so we can stop it later.
   // Without this ref, we'd have no way to cancel the vibrations
   // when the user releases the button.
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Stores the animation reference so we can cancel it on release.
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -82,26 +82,12 @@ export default function HoldButton({
 
     animationRef.current = animation;
 
-    // 3. Start accelerating haptic buzzes while holding.
-    //    Instead of a fixed interval, we use a recursive setTimeout
-    //    that gets faster over time — starts at 500ms, ends at 80ms.
-    //    This creates a "heartbeat speeding up" effect as the bar fills.
-    const startTime = Date.now();
-    const scheduleNextBuzz = () => {
-      // How far through the hold are we? 0 = just started, 1 = done
-      const elapsed = Date.now() - startTime;
-      const fraction = Math.min(elapsed / durationMs, 1);
-
-      // Lerp (linear interpolation) from 500ms down to 80ms.
-      // At 0% progress → 500ms gap. At 100% progress → 80ms gap.
-      const delay = 500 - fraction * (500 - 80);
-
-      timeoutRef.current = setTimeout(() => {
-        Haptics.selectionAsync();
-        scheduleNextBuzz(); // Schedule the next buzz (even shorter delay)
-      }, delay);
-    };
-    scheduleNextBuzz();
+    // 3. Start a repeating haptic buzz every 500ms while holding.
+    //    selectionAsync() is a very subtle vibration — just enough
+    //    to remind the user "keep holding."
+    intervalRef.current = setInterval(() => {
+      Haptics.selectionAsync();
+    }, 500);
 
     // 4. Start the animation. When it finishes (user held long enough):
     animation.start(({ finished }) => {
@@ -140,17 +126,17 @@ export default function HoldButton({
   };
 
   // -----------------------------------------------------------
-  // CLEANUP: Stop the haptic timeout to prevent "ghost vibrations"
+  // CLEANUP: Stop the haptic interval to prevent "ghost vibrations"
   //
-  // This is CRITICAL. If you forget to clear the timeout, the
-  // phone will keep vibrating even after the user releases the
-  // button or navigates away. This is a common bug with
-  // setTimeout chains in React Native.
+  // This is CRITICAL. If you forget to clear the interval, the
+  // phone will keep vibrating every 500ms even after the user
+  // releases the button or navigates away. This is a common bug
+  // with setInterval in React Native.
   // -----------------------------------------------------------
   const cleanup = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
   };
 

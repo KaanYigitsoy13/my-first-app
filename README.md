@@ -17,15 +17,15 @@ _Coming soon_
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | React Native 0.81 + Expo SDK 54 |
-| Navigation | expo-router 6 (file-based) |
-| Styling | NativeWind v4 + Tailwind CSS 3 |
-| State | Zustand with persist middleware |
-| Storage | AsyncStorage (local) + Supabase (remote) |
-| Haptics | expo-haptics |
-| Language | TypeScript (strict mode) |
+| Layer      | Technology                               |
+| ---------- | ---------------------------------------- |
+| Framework  | React Native 0.81 + Expo SDK 54          |
+| Navigation | expo-router 6 (file-based)               |
+| Styling    | NativeWind v4 + Tailwind CSS 3           |
+| State      | Zustand with persist middleware          |
+| Storage    | AsyncStorage (local) + Supabase (remote) |
+| Haptics    | expo-haptics                             |
+| Language   | TypeScript (strict mode)                 |
 
 ## Project Structure
 

@@ -33,6 +33,7 @@ import AnimatedStep from "@/components/AnimatedStep";
 import HoldButton from "@/components/HoldButton";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { COLORS, FONT_SIZES, SPACING } from "@/constants/theme";
+import { fetchDailyQuote } from "@/lib/fetchDailyQuote";
 import { supabase } from "@/lib/supabase";
 import useReflectionStore from "@/store/useReflectionStore";
 import * as Haptics from "expo-haptics";
@@ -72,6 +73,7 @@ export default function MorningStep6() {
   const dailyGoal = useReflectionStore((state) => state.daily_goal);
   const chosenQuality = useReflectionStore((state) => state.chosen_quality);
   const resetMorning = useReflectionStore((state) => state.resetMorning);
+  const setDailyQuote = useReflectionStore((state) => state.setDailyQuote);
 
   // -----------------------------------------------------------
   // LOCAL STATE — Pledge Checkbox
@@ -120,6 +122,18 @@ export default function MorningStep6() {
       });
 
       if (error) throw error;
+
+      // Fire-and-forget: fetch a Marcus Aurelius quote in the background.
+      // We grab goal/quality from `state` (captured above) before reset clears them.
+      fetchDailyQuote(
+        state.daily_goal,
+        state.chosen_quality,
+        state.mood,
+        state.physical,
+        state.stress_level,
+      ).then((quote) => {
+        if (quote) setDailyQuote(quote);
+      });
 
       // Only reset AFTER a successful insert. If we reset before
       // and the insert fails, the user's answers are gone forever.

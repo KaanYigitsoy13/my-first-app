@@ -26,13 +26,14 @@ import useReflectionStore from "@/store/useReflectionStore";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function HomeScreen() {
   const router = useRouter();
 
   // Read state from the Zustand store
   const dailyGoal = useReflectionStore((state) => state.daily_goal);
+  const dailyQuote = useReflectionStore((state) => state.daily_quote);
   const resetMorning = useReflectionStore((state) => state.resetMorning);
   const resetEvening = useReflectionStore((state) => state.resetEvening);
 
@@ -129,22 +130,31 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       {/* ---- Monogram + Date ---- */}
-      {/* The "M·A" monogram gives the app identity — like a wax seal
-          on a letter. The · (middle dot) is a typographic flourish. */}
       <Text style={styles.monogram}>Welcome, Kaan!</Text>
       <Text style={styles.date}>{today}</Text>
 
-      {/* Spacer — pushes the goal box down from the header area */}
-      <View style={{ height: SPACING.xxl }} />
+      {/* Spacer */}
+      <View style={{ height: SPACING.xl }} />
 
       {/* ---- Today's Focus Section ---- */}
       <Text style={styles.focusLabel}>Today's Focus</Text>
       <View style={styles.goalBox}>{renderGoalContent()}</View>
 
-      {/* Spacer — separates goal from buttons */}
-      <View style={{ height: SPACING.xxl }} />
+      {/* ---- Quotation of the Day Section ---- */}
+      {dailyQuote !== "" && (
+        <>
+          <View style={{ height: SPACING.xl }} />
+          <Text style={styles.quotationLabel}>Quotation of the Day</Text>
+          <View style={styles.quotationBox}>
+            <Text style={styles.quotationText}>{dailyQuote}</Text>
+          </View>
+        </>
+      )}
+
+      {/* Spacer */}
+      <View style={{ height: SPACING.xl }} />
 
       {/* ---- Navigation Buttons ---- */}
       <View style={styles.buttonGroup}>
@@ -152,20 +162,25 @@ export default function HomeScreen() {
           <Text style={styles.buttonText}>Morning Reflection</Text>
         </Pressable>
 
+        <View style={{ height: SPACING.sm }} />
+
         <Pressable style={styles.button} onPress={handleEveningPress}>
           <Text style={styles.buttonText}>Evening Reflection</Text>
         </Pressable>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: COLORS.background,
+  },
+  container: {
+    alignItems: "center",
+    paddingTop: SPACING.xxl,
+    paddingBottom: SPACING.xxl,
     paddingHorizontal: SPACING.lg,
   },
 
@@ -245,5 +260,29 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: COLORS.gold,
     // TODO: Switch to FONT_FAMILIES.DM_SANS_MEDIUM in Phase 8
+  },
+
+  // ---- Quotation of the Day ----
+  quotationLabel: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.inkMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    marginBottom: SPACING.sm,
+  },
+  quotationBox: {
+    width: "100%",
+    backgroundColor: COLORS.surface,
+    borderWidth: 0.5,
+    borderColor: COLORS.gold,
+    borderRadius: 8,
+    padding: 14,
+  },
+  quotationText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.inkLight,
+    fontStyle: "italic",
+    textAlign: "center",
+    lineHeight: 24,
   },
 });

@@ -40,6 +40,7 @@ interface ReflectionState {
   // -- Morning-only fields --
   daily_goal: string; // Free text: "What do you want to accomplish today?"
   chosen_quality: string; // One of: Temperance, Focus, Courage, Justice, Kindness
+  daily_quote: string; // AI-generated Marcus Aurelius quote based on goal + quality
 
   // -- Evening-only fields --
   performance: number | null; // 1-5 score
@@ -53,9 +54,12 @@ interface ReflectionState {
     value: ReflectionState[K],
   ) => void;
 
+  // Dedicated setter for the daily quote (called after AI response).
+  setDailyQuote: (quote: string) => void;
+
   // Reset functions clear fields back to their initial values.
-  // resetMorning: clears common + morning fields, EXCEPT daily_goal
-  //   (because daily_goal is persisted and shown on the main screen).
+  // resetMorning: clears common + morning fields, EXCEPT daily_goal/daily_quote
+  //   (because they are persisted and shown on the main screen).
   // resetEvening: clears common + evening fields.
   resetMorning: () => void;
   resetEvening: () => void;
@@ -84,6 +88,7 @@ const useReflectionStore = create<ReflectionState>()(
 
       daily_goal: "",
       chosen_quality: "",
+      daily_quote: "",
 
       performance: null,
       goal_accomplished: null,
@@ -98,6 +103,8 @@ const useReflectionStore = create<ReflectionState>()(
       // expects number | null, not string.
       setField: (key, value) =>
         set({ [key]: value } as Partial<ReflectionState>),
+
+      setDailyQuote: (quote) => set({ daily_quote: quote }),
 
       // Reset morning flow fields back to initial values.
       // Notice daily_goal is NOT reset here — it persists on
@@ -135,8 +142,11 @@ const useReflectionStore = create<ReflectionState>()(
       // CRITICAL: `partialize` controls WHAT gets saved to disk.
       // Without this, Zustand would persist EVERYTHING — meaning
       // old mood/stress scores would reappear after an app restart.
-      // We only want daily_goal to survive app restarts.
-      partialize: (state) => ({ daily_goal: state.daily_goal }),
+      // We only want daily_goal and daily_quote to survive app restarts.
+      partialize: (state) => ({
+        daily_goal: state.daily_goal,
+        daily_quote: state.daily_quote,
+      }),
     },
   ),
 );
