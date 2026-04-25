@@ -1,6 +1,6 @@
 // lib/fetchDailyQuote.ts
 // -----------------------------------------------------------
-// Calls the Gemini API to fetch a Marcus Aurelius quotation
+// Calls the Gemini API to fetch a Stoic quotation
 // that matches the user's daily goal and chosen Stoic quality.
 //
 // Returns the quote string on success, or "" on any failure
@@ -18,13 +18,36 @@ export async function fetchDailyQuote(
   stressLevel: number | null,
 ): Promise<string> {
   try {
-    const prompt = `You return exact quotes from Marcus Aurelius' Book: Meditations. Do not add commentary, explanation, or paraphrasing.
+    const prompt = `
+Your task: Select a REAL, VERBATIM paragraph from ONE of the following Stoic works:
+- Meditations by Marcus Aurelius
+- Discourses by Epictetus
+- Letters from a Stoic by Seneca
 
-The user did a morning reflection and has set a daily goal: '${dailyGoal}'. They have chosen a quality to embody today as well: '${chosenQuality}'.
+The paragraph must be meaningfully and directly relevant to the user's daily goal:
 
-Your task: Consider User's daily goal and chosen quality. Select the single most appropriate paragraph from Marcus Aurelius' Book: Meditations.
+Daily Goal: "${dailyGoal}"
 
-Output rules: Return ONLY the paragraph text itself — no commentary, no explanation. Just the raw paragraph from the text and add an attribution line as 'Book X, Section Y'.`;
+STRICT REQUIREMENTS:
+
+1. Use ONLY authentic text from the original works. Do NOT paraphrase, summarize, or modify wording.
+2. Select a paragraph (3–6 sentences preferred) that clearly aligns with the user's goal.
+3. Avoid overly generic quotes — prioritize strong thematic relevance.
+
+OUTPUT FORMAT (follow exactly):
+
+<paragraph text>
+
+— <Author>, <Book Title>
+
+Why <Author> shared this with you?
+<One concise sentence explaining your reasoning on how the quote relates to the daily goal of the user, keep the tone in line with 'Why <Author> shared this with you?' title.>
+
+QUALITY CHECK BEFORE FINALIZING:
+- The quote must read naturally and be internally consistent (not stitched together).
+- The connection must be specific, not generic.
+- The output must strictly follow the format above.
+`;
 
     const response = await fetch(GEMINI_ENDPOINT, {
       method: "POST",

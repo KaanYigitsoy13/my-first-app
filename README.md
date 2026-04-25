@@ -1,6 +1,6 @@
-# The Marcus Aurelius Meditations
+# Stoic Daily Reflection
 
-A Stoic daily reflection app built with React Native and Expo. Start each morning with intention, close each evening with self-review — inspired by Marcus Aurelius' practice of philosophical journaling.
+A daily reflection app built with React Native and Expo. Start each morning with intention, close each evening with self-review — grounded in Stoic philosophy.
 
 ## Screenshots
 
@@ -63,6 +63,7 @@ lib/
    ```
    EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   EXPO_PUBLIC_GEMINI_API_KEY=your_gemini_api_key
    ```
 
 3. **Start the app**
