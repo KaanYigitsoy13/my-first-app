@@ -1,24 +1,18 @@
-// app/morning/step5.tsx
+// app/evening/step3.tsx
 // -----------------------------------------------------------
-// MORNING STEP 5 — Chosen Quality
+// EVENING STEP 3 — Evening Mood
 //
-// This step is different from 1–3 (number scores). Instead of
-// picking a number, the user picks one of five Stoic virtues
-// to focus on today. We reuse ChoiceButton with the `pill` prop
-// to render wider, text-friendly buttons.
+// Same 1–5 score pattern as the morning mood step, but with
+// a warmer, more relaxed tone.
 //
-// WHY THESE FIVE QUALITIES?
-// Drawn from Stoic philosophy:
-//   Temperance — self-control, moderation
-//   Focus      — attention on what matters
-//   Courage    — facing difficulty bravely
-//   Justice    — fairness and doing right
-//   Kindness   — compassion toward others
+// NOTE: Morning and evening SHARE the `mood` field in the store.
+// This is fine because resetEvening() clears it before the
+// evening flow starts, and resetMorning() clears it before morning.
 //
 // DATA FLOW:
-//   User taps "Courage" → setField("chosen_quality", "Courage")
-//   → store updates → ChoiceButton "Courage" highlights gold
-//   → NextButton enables → push to step6 (summary)
+//   User taps "4" → setField("mood", 4) → store updates
+//   → ChoiceButton "4" highlights gold → NextButton enables
+//   → user taps Next → push to step4
 // -----------------------------------------------------------
 
 import AnimatedStep from "@/components/AnimatedStep";
@@ -30,42 +24,40 @@ import useReflectionStore from "@/store/useReflectionStore";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 
-const QUALITIES = ["Temperance", "Focus", "Courage", "Justice", "Kindness"];
-
-export default function MorningStep5() {
+export default function EveningStep3() {
   const router = useRouter();
 
-  const chosenQuality = useReflectionStore((state) => state.chosen_quality);
+  const mood = useReflectionStore((state) => state.mood);
   const setField = useReflectionStore((state) => state.setField);
+
+  const scores = [1, 2, 3, 4, 5];
 
   return (
     <ScreenWrapper>
       <AnimatedStep>
-        <Text style={styles.stepIndicator}>5 / 6</Text>
+        <Text style={styles.stepIndicator}>3 / 7</Text>
 
         <Text style={styles.question}>
-          Which quality do you want to embody today?
+          Good job on the day!{"\n"}Now let's chill — how is your mood this
+          evening?
         </Text>
 
-        <Text style={styles.subtitle}>
-          Choose the virtue that calls to you.
-        </Text>
+        <Text style={styles.subtitle}>1 = low mood · 5 = good mood</Text>
 
         <View style={styles.buttonRow}>
-          {QUALITIES.map((quality) => (
+          {scores.map((value) => (
             <ChoiceButton
-              key={quality}
-              label={quality}
-              pill
-              selected={chosenQuality === quality}
-              onPress={() => setField("chosen_quality", quality)}
+              key={value}
+              label={String(value)}
+              selected={mood === value}
+              onPress={() => setField("mood", value)}
             />
           ))}
         </View>
 
         <NextButton
-          onPress={() => router.push("/morning/step6")}
-          disabled={chosenQuality === ""}
+          onPress={() => router.push("/evening/step4")}
+          disabled={mood === null}
         />
       </AnimatedStep>
     </ScreenWrapper>
@@ -94,7 +86,6 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "center",
     gap: 10,
   },

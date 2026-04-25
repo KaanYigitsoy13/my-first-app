@@ -21,21 +21,96 @@
 // starts fresh), then pushes the first step of that flow.
 // -----------------------------------------------------------
 
+import BackgroundImage from "@/components/BackgroundImage";
 import { COLORS, FONT_SIZES, SPACING } from "@/constants/theme";
 import useReflectionStore from "@/store/useReflectionStore";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  UIManager,
+  View,
+} from "react-native";
+
+// Pre-require all three background images so Metro bundles them.
+// Selecting the right source at runtime is done in HomeScreen below.
+const BG_DEFAULT = require("@/assets/images/background.png");
+const BG_REFLECTED = require("@/assets/images/background reflected.png");
+const BG_END_OF_DAY = require("@/assets/images/background end of day.png");
+
+// LayoutAnimation requires an explicit opt-in on Android.
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Loading messages shown while Gemini is generating the quote.
+// Displayed one at a time, advancing every 2 s. The last message
+// is never replaced — it stays until the real quote arrives.
+const LOADING_MESSAGES = [
+  "Reaching out to the Stoics",
+  "Reflecting on your goal",
+  "Gathering their wisdom",
+  "Almost there",
+];
+
+function getReflectionDayKey(date = new Date()) {
+  const shiftedDate = new Date(date);
+  shiftedDate.setHours(shiftedDate.getHours() - 3, 0, 0, 0);
+
+  const year = shiftedDate.getFullYear();
+  const month = String(shiftedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(shiftedDate.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function StatusIndicator({
+  label,
+  icon,
+  completed,
+  onPress,
+}: {
+  label: string;
+  icon: React.ComponentProps<typeof MaterialIcons>["name"];
+  completed: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={styles.statusItem} onPress={onPress}>
+      <View style={styles.statusCircle}>
+        <MaterialIcons
+          name={completed ? "check" : icon}
+          size={24}
+          color={COLORS.gold}
+        />
+      </View>
+      <Text style={styles.statusLabel}>{label}</Text>
+    </Pressable>
+  );
+}
 
 export default function HomeScreen() {
-  const router = useRouter();
-
   // Read state from the Zustand store
   const dailyGoal = useReflectionStore((state) => state.daily_goal);
   const dailyQuote = useReflectionStore((state) => state.daily_quote);
-  const resetMorning = useReflectionStore((state) => state.resetMorning);
-  const resetEvening = useReflectionStore((state) => state.resetEvening);
+  const isDailyQuoteLoading = useReflectionStore(
+    (state) => state.is_daily_quote_loading,
+  );
+  const morningCompletedDayKey = useReflectionStore(
+    (state) => state.morning_completed_day_key,
+  );
+  const eveningCompletedDayKey = useReflectionStore(
+    (state) => state.evening_completed_day_key,
+  );
 
   // -----------------------------------------------------------
   // HYDRATION STATE
@@ -54,6 +129,54 @@ export default function HomeScreen() {
   // real goal. The skeleton placeholder hides this jank.
   // -----------------------------------------------------------
   const [hydrated, setHydrated] = useState(false);
+  // Guidance for Today is expanded by default; tapping collapses it to 3 lines.
+  const [quoteExpanded, setQuoteExpanded] = useState(true);
+
+  // -- Loading message rotation --
+  // Advances to the next message every 2 s; stops at the last one.
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
+  useEffect(() => {
+    if (!isDailyQuoteLoading) {
+      setLoadingMsgIndex(0);
+      return;
+    }
+    const id = setInterval(() => {
+      setLoadingMsgIndex((prev) =>
+        prev < LOADING_MESSAGES.length - 1 ? prev + 1 : prev,
+      );
+    }, 4000);
+    return () => clearInterval(id);
+  }, [isDailyQuoteLoading]);
+
+  // -- Animated dots: "" → "." → ".." → "..." → "" … --
+  // Continues cycling at 500 ms regardless of which message is showing.
+  const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    if (!isDailyQuoteLoading) {
+      setDotCount(0);
+      return;
+    }
+    const id = setInterval(() => {
+      setDotCount((prev) => (prev + 1) % 4);
+    }, 500);
+    return () => clearInterval(id);
+  }, [isDailyQuoteLoading]);
+
+  const toggleQuote = () => {
+    LayoutAnimation.configureNext({
+      duration: 250,
+      create: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+      update: { type: LayoutAnimation.Types.easeInEaseOut },
+      delete: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+    });
+    setQuoteExpanded((prev) => !prev);
+  };
 
   useEffect(() => {
     // Listen for when hydration finishes (data is loaded from disk)
@@ -78,29 +201,25 @@ export default function HomeScreen() {
   // -----------------------------------------------------------
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", // "Saturday"
-    month: "long", // "April"
+    month: "long",  // "April"
     day: "numeric", // "12"
   });
+  const currentReflectionDayKey = getReflectionDayKey();
+  const isMorningCompletedToday =
+    morningCompletedDayKey === currentReflectionDayKey;
+  const isEveningCompletedToday =
+    eveningCompletedDayKey === currentReflectionDayKey;
 
-  // -----------------------------------------------------------
-  // BUTTON HANDLERS
-  //
-  // Each handler does three things in order:
-  // 1. Fire a haptic vibration (tactile "I pressed something" feedback)
-  // 2. Reset the store fields for that flow (start fresh)
-  // 3. Navigate to the first step of the flow
-  // -----------------------------------------------------------
-  const handleMorningPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    resetMorning(); // Clear mood, physical, stress, quality — NOT daily_goal
-    router.push("/morning/step1");
-  };
-
-  const handleEveningPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    resetEvening(); // Clear mood, physical, stress, performance, etc.
-    router.push("/evening/step1");
-  };
+  // Pick background image based on completion state:
+  //  - Both done        → end of day
+  //  - Morning only done → reflected
+  //  - Morning not done  → default (covers: neither done, evening-only done)
+  const backgroundSource =
+    isMorningCompletedToday && isEveningCompletedToday
+      ? BG_END_OF_DAY
+      : isMorningCompletedToday
+        ? BG_REFLECTED
+        : BG_DEFAULT;
 
   // -----------------------------------------------------------
   // GOAL BOX CONTENT
@@ -121,7 +240,7 @@ export default function HomeScreen() {
     if (dailyGoal === "") {
       return (
         <Text style={styles.goalPlaceholder}>
-          Complete your morning reflection to set today's goal.
+          Complete your morning reflection to set today&apos;s focus.
         </Text>
       );
     }
@@ -129,81 +248,180 @@ export default function HomeScreen() {
     return <Text style={styles.goalText}>{dailyGoal}</Text>;
   };
 
+  const shouldShowQuoteSection = isDailyQuoteLoading || dailyQuote !== "";
+
+  // ---- Debug: simulate day rollover ----
+  const resetDayState = useReflectionStore(
+    (state) => state.setMorningCompletedDayKey,
+  );
+  const resetEveningDayState = useReflectionStore(
+    (state) => state.setEveningCompletedDayKey,
+  );
+  const setDailyGoal = useReflectionStore((state) => state.setField);
+  const setDailyQuoteFn = useReflectionStore((state) => state.setDailyQuote);
+
+  const handleDebugReset = () => {
+    // Shift back 2 days to guarantee we land on a different 3 a.m.-shifted key
+    // regardless of what time of day the tester runs this.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 2);
+    const shifted = new Date(yesterday);
+    shifted.setHours(shifted.getHours() - 3, 0, 0, 0);
+    const y = shifted.getFullYear();
+    const m = String(shifted.getMonth() + 1).padStart(2, "0");
+    const d = String(shifted.getDate()).padStart(2, "0");
+    const oldKey = `${y}-${m}-${d}`;
+
+    resetDayState(oldKey);
+    resetEveningDayState(oldKey);
+    setDailyGoal("daily_goal", "");
+    setDailyQuoteFn("");
+  };
+
+  const renderQuoteContent = () => {
+    if (isDailyQuoteLoading) {
+      const dots = ["", ".", "..", "..."][dotCount];
+      return (
+        <Text style={styles.quotationPlaceholder}>
+          {LOADING_MESSAGES[loadingMsgIndex]}
+          {dots}
+        </Text>
+      );
+    }
+
+    return (
+      <Text
+        style={styles.quotationText}
+        numberOfLines={quoteExpanded ? undefined : 3}
+      >
+        {dailyQuote}
+      </Text>
+    );
+  };
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      {/* ---- Monogram + Date ---- */}
-      <Text style={styles.monogram}>Welcome, Kaan!</Text>
-      <Text style={styles.date}>{today}</Text>
+    <View style={styles.root}>
+      <BackgroundImage source={backgroundSource} />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+      >
+        {/* ---- Header Date ---- */}
+        <Text style={styles.headerDate}>{today}</Text>
 
-      {/* Spacer */}
-      <View style={{ height: SPACING.xl }} />
+        <View style={styles.statusRow}>
+          <StatusIndicator
+            label="Morning"
+            icon="wb-sunny"
+            completed={isMorningCompletedToday}
+            onPress={() => {
+              useReflectionStore.getState().resetMorning();
+              router.push("/morning/step1");
+            }}
+          />
+          <StatusIndicator
+            label="Evening"
+            icon="brightness-2"
+            completed={isEveningCompletedToday}
+            onPress={() => {
+              useReflectionStore.getState().resetEvening();
+              router.push("/evening/step1");
+            }}
+          />
+        </View>
 
-      {/* ---- Today's Focus Section ---- */}
-      <Text style={styles.focusLabel}>Today's Focus</Text>
-      <View style={styles.goalBox}>{renderGoalContent()}</View>
+        {/* Spacer */}
+        <View style={{ height: SPACING.xl }} />
 
-      {/* ---- Quotation of the Day Section ---- */}
-      {dailyQuote !== "" && (
-        <>
-          <View style={{ height: SPACING.xl }} />
-          <Text style={styles.quotationLabel}>Quotation of the Day</Text>
-          <View style={styles.quotationBox}>
-            <Text style={styles.quotationText}>{dailyQuote}</Text>
-          </View>
-        </>
-      )}
+        {/* ---- Today's Focus Section ---- */}
+        <Text style={styles.focusLabel}>Today&apos;s Focus</Text>
+        <View style={styles.goalBox}>{renderGoalContent()}</View>
 
-      {/* Spacer */}
-      <View style={{ height: SPACING.xl }} />
+        {/* ---- Quotation of the Day Section ---- */}
+        {shouldShowQuoteSection && (
+          <>
+            <View style={{ height: SPACING.xl }} />
+            <Pressable style={styles.quotationLabelRow} onPress={toggleQuote}>
+              <Text style={styles.quotationLabel}>Guidance for Today</Text>
+              {!isDailyQuoteLoading && (
+                <MaterialIcons
+                  name={quoteExpanded ? "expand-less" : "expand-more"}
+                  size={16}
+                  color={COLORS.inkFaint}
+                />
+              )}
+            </Pressable>
+            <Pressable style={styles.quotationBox} onPress={toggleQuote}>
+              {renderQuoteContent()}
+            </Pressable>
+          </>
+        )}
 
-      {/* ---- Navigation Buttons ---- */}
-      <View style={styles.buttonGroup}>
-        <Pressable style={styles.button} onPress={handleMorningPress}>
-          <Text style={styles.buttonText}>Morning Reflection</Text>
+        {/* ---- DEBUG: Reset Day State ---- */}
+        <View style={{ height: SPACING.xxl }} />
+        <Pressable style={styles.debugButton} onPress={handleDebugReset}>
+          <Text style={styles.debugButtonText}>⚙ Reset Day State</Text>
         </Pressable>
-
-        <View style={{ height: SPACING.sm }} />
-
-        <Pressable style={styles.button} onPress={handleEveningPress}>
-          <Text style={styles.buttonText}>Evening Reflection</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
   scroll: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "transparent",
   },
   container: {
     alignItems: "center",
-    paddingTop: SPACING.xxl,
+    paddingTop: 80,
     paddingBottom: SPACING.xxl,
     paddingHorizontal: SPACING.lg,
   },
 
   // ---- Header ----
-  monogram: {
+  headerDate: {
     fontSize: FONT_SIZES.xl,
     color: COLORS.gold,
-    letterSpacing: 3, // Wide spacing for the monogram look
+    textAlign: "center",
     fontWeight: "600",
     // TODO: Switch to FONT_FAMILIES.PLAYFAIR_REGULAR in Phase 8
   },
-  date: {
-    fontSize: FONT_SIZES.md, // 14px
+  statusRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: SPACING.xl,
+    marginTop: SPACING.md,
+  },
+  statusItem: {
+    alignItems: "center",
+  },
+  statusCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.surface,
+  },
+  statusLabel: {
+    marginTop: SPACING.sm,
+    fontSize: FONT_SIZES.sm,
     color: COLORS.inkMuted,
-    marginTop: SPACING.xs,
-    // TODO: Switch to FONT_FAMILIES.DM_SANS_REGULAR in Phase 8
+    textAlign: "center",
   },
 
   // ---- Today's Focus ----
   focusLabel: {
     fontSize: FONT_SIZES.md,
     color: COLORS.inkMuted,
-    textTransform: "uppercase",
     letterSpacing: 1.5,
     marginBottom: SPACING.sm,
     // TODO: Switch to FONT_FAMILIES.DM_SANS_REGULAR in Phase 8
@@ -240,35 +458,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 
-  // ---- Buttons ----
-  buttonGroup: {
-    width: "100%",
-    gap: SPACING.md,
-  },
-  button: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.surface,
-    borderWidth: 0.5,
-    borderColor: COLORS.gold,
-    borderRadius: 8,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-  },
-  buttonText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: "500",
-    color: COLORS.gold,
-    // TODO: Switch to FONT_FAMILIES.DM_SANS_MEDIUM in Phase 8
-  },
-
   // ---- Quotation of the Day ----
+  quotationLabelRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: SPACING.sm,
+  },
   quotationLabel: {
+    flex: 1,
     fontSize: FONT_SIZES.md,
     color: COLORS.inkMuted,
-    textTransform: "uppercase",
     letterSpacing: 1.5,
-    marginBottom: SPACING.sm,
+    textAlign: "center",
   },
   quotationBox: {
     width: "100%",
@@ -277,6 +480,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gold,
     borderRadius: 8,
     padding: 14,
+    overflow: "hidden",
   },
   quotationText: {
     fontSize: FONT_SIZES.sm,
@@ -284,5 +488,27 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
     lineHeight: 24,
+  },
+  quotationPlaceholder: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.inkMuted,
+    fontStyle: "italic",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+
+  // ---- Debug only ----
+  debugButton: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    opacity: 0.5,
+  },
+  debugButtonText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.inkMuted,
+    letterSpacing: 0.5,
   },
 });

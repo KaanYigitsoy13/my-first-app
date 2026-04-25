@@ -1,24 +1,15 @@
-// app/morning/step5.tsx
+// app/evening/step5.tsx
 // -----------------------------------------------------------
-// MORNING STEP 5 — Chosen Quality
+// EVENING STEP 5 — Stress Level
 //
-// This step is different from 1–3 (number scores). Instead of
-// picking a number, the user picks one of five Stoic virtues
-// to focus on today. We reuse ChoiceButton with the `pill` prop
-// to render wider, text-friendly buttons.
-//
-// WHY THESE FIVE QUALITIES?
-// Drawn from Stoic philosophy:
-//   Temperance — self-control, moderation
-//   Focus      — attention on what matters
-//   Courage    — facing difficulty bravely
-//   Justice    — fairness and doing right
-//   Kindness   — compassion toward others
+// Same pattern as morning step3 (stress). Shares the
+// `stress_level` field (reset between flows via resetEvening).
+// Note: 5 = very stressed (negative direction).
 //
 // DATA FLOW:
-//   User taps "Courage" → setField("chosen_quality", "Courage")
-//   → store updates → ChoiceButton "Courage" highlights gold
-//   → NextButton enables → push to step6 (summary)
+//   User taps "2" → setField("stress_level", 2) → store updates
+//   → ChoiceButton "2" highlights gold → NextButton enables
+//   → user taps Next → push to step6
 // -----------------------------------------------------------
 
 import AnimatedStep from "@/components/AnimatedStep";
@@ -30,42 +21,39 @@ import useReflectionStore from "@/store/useReflectionStore";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 
-const QUALITIES = ["Temperance", "Focus", "Courage", "Justice", "Kindness"];
-
-export default function MorningStep5() {
+export default function EveningStep5() {
   const router = useRouter();
 
-  const chosenQuality = useReflectionStore((state) => state.chosen_quality);
+  const stressLevel = useReflectionStore((state) => state.stress_level);
   const setField = useReflectionStore((state) => state.setField);
+
+  const scores = [1, 2, 3, 4, 5];
 
   return (
     <ScreenWrapper>
       <AnimatedStep>
-        <Text style={styles.stepIndicator}>5 / 6</Text>
+        <Text style={styles.stepIndicator}>5 / 7</Text>
 
         <Text style={styles.question}>
-          Which quality do you want to embody today?
+          How stressful do you feel when the day is about to end?
         </Text>
 
-        <Text style={styles.subtitle}>
-          Choose the virtue that calls to you.
-        </Text>
+        <Text style={styles.subtitle}>1 = calm · 5 = very stressed</Text>
 
         <View style={styles.buttonRow}>
-          {QUALITIES.map((quality) => (
+          {scores.map((value) => (
             <ChoiceButton
-              key={quality}
-              label={quality}
-              pill
-              selected={chosenQuality === quality}
-              onPress={() => setField("chosen_quality", quality)}
+              key={value}
+              label={String(value)}
+              selected={stressLevel === value}
+              onPress={() => setField("stress_level", value)}
             />
           ))}
         </View>
 
         <NextButton
-          onPress={() => router.push("/morning/step6")}
-          disabled={chosenQuality === ""}
+          onPress={() => router.push("/evening/step6")}
+          disabled={stressLevel === null}
         />
       </AnimatedStep>
     </ScreenWrapper>
@@ -94,7 +82,6 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "center",
     gap: 10,
   },
