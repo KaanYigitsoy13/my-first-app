@@ -9,6 +9,7 @@ _Coming soon_
 ## Features
 
 - **Morning Reflection** — 6-step guided flow: rate your mood, energy, stress, set a daily goal, and choose a guiding quality (Temperance, Focus, Courage, Justice, Kindness). Seal your commitment with a hold-to-confirm pledge.
+- **Daily Stoic Guidance** — After the morning reflection, the app uses the user’s daily focus and Google Gemini 2.5 Flash API to surface a relevant paragraph from Meditations by Marcus Aurelius, Discourses by Epictetus, or Letters from a Stoic by Seneca. This guidance is displayed clearly on the home screen throughout the day.
 - **Evening Reflection** — 7-step review: evaluate your performance, goal accomplishment, mood, energy, stress, and growth. Close the day with a hold-to-confirm submission.
 - **Daily Goal Persistence** — Your morning goal is saved locally and displayed on the home screen throughout the day.
 - **Haptic Feedback** — Tactile vibrations on every interaction. The hold button buzzes rhythmically as it fills.
